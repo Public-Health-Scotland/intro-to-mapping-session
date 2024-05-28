@@ -1,0 +1,70 @@
+---
+title: "Building interactive maps using Leaflet in R"
+author: "Kate Pyper"
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: true
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  hiline = TRUE
+)
+```
+
+## This Session
+
+By the end of this session you'll be able to build maps like this:
+
+[ADD MAP EXAMPLE]
+
+---
+
+## This Session
+
+During this section we will work through how to build a map in R using Leaflet (~ 1 hour) followed by a practice task for you to work on in small groups supported by the Geospatial Cross Team (~ 1 hour).
+
+In the first hour we will cover:
+
+- Reading in and manipulating shapefiles
+
+- Adding Base maps
+
+- Adding areas and point markers (with legends)
+
+- Adding and toggling layers
+
+Before joining this session you should have installed the geospatial packages on Posit, and also set up your .Rprofile to run the geospatial set up code.
+
+---
+
+class: center, middle, inverse
+
+# Reading in and manipulating shapefiles
+
+---
+
+class: center, middle, inverse2
+
+# Building a basic map
+
+---
+
+class: center, middle, inverse3
+
+# Toggling layers
+
+---
