@@ -13,6 +13,23 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+
+# save the built-in output hook
+hook_output <- knitr::knit_hooks$get("output")
+
+# set a new output hook to truncate text output
+knitr::knit_hooks$set(output = function(x, options) {
+  if (!is.null(n <- options$out.lines)) {
+    x <- xfun::split_lines(x)
+    if (length(x) > n) {
+      # truncate the output
+      x <- c(head(x, n), "....\n")
+    }
+    x <- paste(x, collapse = "\n")
+  }
+  hook_output(x, options)
+})
+
 options(htmltools.dir.version = FALSE)
 knitr::opts_chunk$set(
   fig.width=9, fig.height=3.5, fig.retina=3,
@@ -57,6 +74,94 @@ class: center, middle, inverse
 
 ---
 
+# What are shapefiles?
+
+Shapefiles contain information on how locations look on a map. This is usually some set of coordinates that make up the boundaries of an area or set of areas.
+
+The shapefile is actually multiple files *with the same name* that link together to form a full picture of what the area looks like. For R the key files *needed at minimum* to construct a spatial object are:
+
+- `.shp` - this file contains the boundary definitions for a set of areas 
+
+- `.dbf` - this file contains additional data relating to the same set of areas as in the `.shp` file
+
+- `.shx` - this is an index file which allows searching of the `.shp` file
+
+Shapefiles are available for a variety of area types in Posit: 
+
+```{r}
+
+geo_dir <- "/conf/linkage/output/lookups/Unicode/Geography/"
+
+``` 
+
+These shapefiles contain optional files which provides richer spatial information (`.prj`) and faster loading.
+
+---
+
+# Reading in spatial data
+
+The package that is recommended for all things spatial is `{sf}`. `{sf}` treats spatial data in R as a type of data frame called a simple features data frame - the simple features are the (not so simple) are definitions.
+
+To read in a shapefile as a simple features data frame, use the command `read_sf()` and supply the name of the `.shp` file - r will automatically pull in the rest of the files.
+
+To read in the locality level shape files:
+
+```{r}
+
+library(sf)
+library(readr)
+library(dplyr)
+
+locality_shp <- read_sf(file.path(geo_dir, "Shapefiles/HSCP Locality (Datazone2011 Base)/HSCP_Locality.shp"))
+
+```
+
+This looks like a data frame, and can be treated in generally the same way as a data frame (with some additional quirks!)
+
+- The column `geometry` contains the information on the area boundaries which comes from the `.shp` file
+
+- The rest of the columns come from information in the `.dbf` file
+
+---
+
+# The Coordinate Reference System (CRS)
+
+When you read in a shapefile it will have an associated coordinate system in place. you can check what this corrdinate system is:
+
+```{r, out.lines = 4}
+st_crs(locality_shp)
+```
+
+Our shapefile is on an ordnance survey grid - usually, we want to have a geography data in latitude longitude format. This corresponds to a coordinate reference system called EPSG:4326. To transform to this coordinate system use `st_transform()`:
+
+```{r, out.lines = 4}
+locality_shp <- st_transform(locality_shp, crs = 4326)
+
+st_crs(locality_shp)
+```
+
+---
+
+# Manipulating spatial data
+
+In general you can use a simple features data frame in the same way as any other data frame - including using `{dplyr}` verbs like `filter()`, `mutate()` and `select()` (`select()` will automatically select the `geometry` column)
+
+The main operation where you need to be a bit careful is when using joins, as these have an effect on the object type. The rule for these is that *the spatial object has to come first*.
+
+When the spatial object comes first spatial attributes stay in place:
+
+```{r, out.lines = 4}
+locality_lookup <- readr::read_csv(file.path(geo_dir, "/HSCP Locality/HSCP Localities_DZ11_Lookup_20230804.csv")) 
+
+left_join(locality_shp, locality_lookup, by = join_by(hscp_local == hscp_locality))
+```
+
+When the spatial object comes second they don't:
+
+```{r, out.lines = 4}
+left_join(locality_lookup, locality_shp, by = join_by(hscp_locality == hscp_local))
+```
+---
 class: center, middle, inverse2
 
 # Building a basic map
