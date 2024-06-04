@@ -86,7 +86,7 @@ The shapefile is actually multiple files *with the same name* that link together
 
 - `.shx` - this is an index file which allows searching of the `.shp` file
 
-Shapefiles are available for a variety of area types in Posit: 
+Shapefiles are available for a variety of area types in Posit in the `Shapefiles` sub folder of: 
 
 ```{r}
 
@@ -126,7 +126,7 @@ This looks like a data frame, and can be treated in generally the same way as a 
 
 # The Coordinate Reference System (CRS)
 
-When you read in a shapefile it will have an associated coordinate system in place. you can check what this corrdinate system is:
+When you read in a shapefile it will have an associated coordinate system in place. you can check what this coordinate system is:
 
 ```{r, out.lines = 4}
 st_crs(locality_shp)
@@ -168,8 +168,237 @@ class: center, middle, inverse2
 
 ---
 
+# Base maps
+
+One of the benefits to using leaflet is being able to add spatial information on top of a map of the area you are looking at. This is called the base map, and there are a few you can choose from. To add the default base map:
+
+```{r echo = FALSE}
+library(leaflet)
+
+leaflet() %>% # set up map
+  addTiles()
+
+```
+
+---
+
+# Base maps
+
+If you want to add a different base map ([you can view available base maps here](https://leaflet-extras.github.io/leaflet-providers/preview/)):
+
+```{r echo = FALSE}
+leaflet() %>% 
+  addProviderTiles("Esri.WorldImagery")
+```
+---
+
+# Markers
+
+To add markers to your plot all you need is a set of coordinates containing latitude and longitude. There are a few different types of markers that you can add:
+
+- Circle markers - These are equivalent to adding points to a map, can vary size and colour, add labels and pop-ups.
+
+- Markers - These are location markers. There is a bit of work involved in customising these. 
+
+- Awesome Markers - These are location markers that can be customised easily.
+
+These will be demonstrated using the GP practice information:
+
+```{r echo = FALSE}
+gpprac <- read_csv("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/54a6e1e3-98a3-4e78-be0d-1e6d6ebdde1d/download/practice_contactdetails_jan2024-open-data.csv") %>% 
+  filter(HB == "S08000030") %>% 
+  left_join({read_rds("/conf/linkage/output/lookups/Unicode/Geography/Scottish Postcode Directory/Scottish_Postcode_Directory_2024_1.rds") %>% select(Postcode = pc8, latitude, longitude)})
+```
+
+```{r, out.lines = 4}
+gpprac
+```
+---
+
+# Circle Markers
+
+```{r}
+leaflet() %>% 
+  addTiles() %>% 
+  addCircleMarkers(data = gpprac,
+                   radius = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                Cluster: {gpprac$GPCluster}<br>
+                                List Size: {gpprac$PracticeListSize}"))
+```
+
+---
+
+# Markers
+
+```{r}
+leaflet() %>% 
+  addTiles() %>% 
+  addMarkers(data = gpprac,
+             popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                Cluster: {gpprac$GPCluster}<br>
+                                List Size: {gpprac$PracticeListSize}"))
+```
+
+---
+
+# Awesome Markers
+
+```{r}
+leaflet() %>% 
+  addTiles() %>% 
+  addAwesomeMarkers(data = gpprac,
+                    icon = awesomeIcons(markerColor = "red",
+                                        icon = "glyphicon-plus"),
+                    popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                Cluster: {gpprac$GPCluster}<br>
+                                List Size: {gpprac$PracticeListSize}"))
+```
+
+
+---
+
+# Customizing colour based on data
+
+```{r}
+pal <- colorFactor(scales::pal_dichromat("Categorical.12")(length(unique(gpprac$GPCluster))), gpprac$GPCluster)
+
+leaflet() %>% 
+  addTiles() %>% 
+  addCircleMarkers(data = gpprac,
+                   color = pal(gpprac$GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"))
+```
+
+---
+
+# Areas
+
+We can also add in areas to the map. These can be filled with a colour that we specify manually, or it can be filled using a colour palette. To the previous map showing GP practices, let's add HSCP boundaries coloured by the number of GP practices per 1,000 list size.
+
+```{r, eval = FALSE}
+HSCP_shp <- read_sf(file.path(geo_dir, "Shapefiles/HSCP 2019/SG_NHS_IntegrationAuthority_2019.shp")) %>% 
+  st_transform(crs = 4326)
+
+list_rate <- gpprac %>%
+  group_by(HSCP) %>% 
+  summarise(Rate = 1000 * n()/sum(PracticeListSize)) %>% 
+  right_join(HSCP_shp, ., by = join_by(HIACode == HSCP))
+
+
+pal_clus <- colorFactor(scales::pal_dichromat("Categorical.12")(length(unique(gpprac$GPCluster))), gpprac$GPCluster)
+
+pal_pop <- colorNumeric(phsstyles::phs_colors(c("phs-teal", "phs-magenta")), list_rate$Rate)
+
+leaflet() %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate)) %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"))
+```
+---
+
+# Areas
+
+```{r, echo = FALSE}
+HSCP_shp <- read_sf(file.path(geo_dir, "Shapefiles/HSCP 2019/SG_NHS_IntegrationAuthority_2019.shp")) %>% 
+  st_transform(crs = 4326)
+
+list_rate <- gpprac %>%
+  group_by(HSCP) %>% 
+  summarise(Rate = 1000 * n()/sum(PracticeListSize)) %>% 
+  right_join(HSCP_shp, ., by = join_by(HIACode == HSCP))
+
+
+pal_clus <- colorFactor(scales::pal_dichromat("Categorical.12")(length(unique(gpprac$GPCluster))), gpprac$GPCluster)
+
+pal_pop <- colorNumeric(phsstyles::phs_colors(c("phs-teal", "phs-magenta")), list_rate$Rate)
+
+leaflet() %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate)) %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"))
+```
+---
+
+# Legends
+
+We have to manually add legends to leaflet plots. We do this using `addLegend()`
+
+```{r, eval = FALSE}
+leaflet(height = "75%") %>% # Altered height to make the legends fit
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate)) %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}")) %>% 
+  addLegend(position = "topright",
+            title = "Practices per 1,000 List Size",
+            pal = pal_pop,
+            values = list_rate$Rate) %>% 
+  addLegend(position = "bottomright",
+            title = "GP Cluster",
+            pal = pal_clus,
+            values = gpprac$GPCluster)
+```
+
+---
+# Legends
+
+```{r, echo = FALSE}
+leaflet(height = "75%") %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate)) %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}")) %>% 
+  addLegend(position = "topright",
+            title = "Practices per 1,000 List Size",
+            pal = pal_pop,
+            values = list_rate$Rate) %>% 
+  addLegend(position = "bottomright",
+            title = "GP Cluster",
+            pal = pal_clus,
+            values = gpprac$GPCluster)
+```
+---
+
 class: center, middle, inverse3
 
 # Toggling layers
+
+---
+
+# Setting Groups
+
+---
+
+# Adding controls
 
 ---
