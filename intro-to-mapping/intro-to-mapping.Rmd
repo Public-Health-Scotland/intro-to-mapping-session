@@ -156,7 +156,7 @@ These shapefiles contain optional files which provides richer spatial informatio
 
 # Reading in spatial data
 
-The package that is recommended for all things spatial is `{sf}`. `{sf}` treats spatial data in R as a type of data frame called a simple features data frame - the simple features are the (not so simple) are definitions.
+The package that is recommended for all things spatial is `{sf}`. `{sf}` treats spatial data in R as a type of data frame called a simple features data frame - the simple features are the (not so simple) definitions of how the data works as a map.
 
 To read in a shapefile as a simple features data frame, use the command `read_sf()` and supply the name of the `.shp` file - r will automatically pull in the rest of the files.
 
@@ -228,7 +228,7 @@ class: center, middle, inverse2
 
 One of the benefits to using leaflet is being able to add spatial information on top of a map of the area you are looking at. This is called the base map, and there are a few you can choose from. To add the default base map:
 
-```{r echo = FALSE}
+```{r}
 library(leaflet)
 
 leaflet() %>% # set up map
@@ -242,7 +242,7 @@ leaflet() %>% # set up map
 
 If you want to add a different base map ([you can view available base maps here](https://leaflet-extras.github.io/leaflet-providers/preview/)):
 
-```{r echo = FALSE}
+```{r}
 leaflet() %>% 
   addProviderTiles("Esri.WorldImagery")
 ```
@@ -459,7 +459,7 @@ Each `add` function (`addMarkers()`, `addPolygons()`, `addLegend()` etc.) has an
 
 We can then `addLayersControl()` to create a control that allows us to switch groups on and off within the map.
 
-As an example we'll combine the polygon and point maps that we've created and 
+As an example we'll combine the polygon and point maps that we've created using the GP data.
 
 ---
 
