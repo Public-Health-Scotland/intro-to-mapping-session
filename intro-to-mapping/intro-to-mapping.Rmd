@@ -491,7 +491,7 @@ leaflet() %>%
             `group = "Clusters"`) %>%  
   addLayersControl(position = "topright",
                    options = layersControlOptions(collapsed = FALSE),
-                   `baseGroups = c("PracticeSize", "Clusters")`)  
+                   `baseGroups = c("PracticesSize", "Clusters")`)  
 ```
 ---
 
@@ -501,7 +501,7 @@ leaflet(height = "75%") %>%
   # Always add polygons first otherwise you cover up the points
   addPolygons(data = list_rate,
               color = ~pal_pop(Rate),
-              group = "PracticesSize") %>% #<< 
+              group = "Practice Size") %>% #<< 
   addCircleMarkers(data = gpprac,
                    color = ~pal_clus(GPCluster),
                    radius = 2, fillOpacity = 1, opacity = 1,
@@ -513,7 +513,7 @@ leaflet(height = "75%") %>%
             title = "Practices per 1,000 List Size",
             pal = pal_pop,
             values = list_rate$Rate,
-            group = "PracticesSize") %>% #<< 
+            group = "Practice Size") %>% #<< 
   addLegend(position = "bottomleft",
             title = "GP Cluster",
             pal = pal_clus,
@@ -521,5 +521,5 @@ leaflet(height = "75%") %>%
             group = "Clusters") %>% #<< 
   addLayersControl(position = "topright",
                    options = layersControlOptions(collapsed = FALSE),
-                   baseGroups = c("PracticeSize", "Clusters")) #<< 
+                   baseGroups = c("Practice Size", "Clusters")) 
 ```
