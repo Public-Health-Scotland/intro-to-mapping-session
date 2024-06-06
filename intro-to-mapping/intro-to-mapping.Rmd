@@ -7,13 +7,40 @@ output:
     nature:
       slideNumberFormat: "%current%"
       highlightStyle: github
+      highlightSpans: true
       highlightLines: true
       ratio: 16:9
       countIncrementalSlides: true
 ---
 
 ```{r setup, include=FALSE}
+library(sf)
+library(readr)
+library(dplyr)
+library(leaflet)
 
+geo_dir <- "/conf/linkage/output/lookups/Unicode/Geography/"
+
+locality_shp <- read_sf(file.path(geo_dir, "Shapefiles/HSCP Locality (Datazone2011 Base)/HSCP_Locality.shp"))
+
+locality_shp <- st_transform(locality_shp, crs = 4326)
+
+gpprac <- read_csv("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/54a6e1e3-98a3-4e78-be0d-1e6d6ebdde1d/download/practice_contactdetails_jan2024-open-data.csv") %>% 
+  filter(HB == "S08000030") %>% 
+  left_join({read_rds("/conf/linkage/output/lookups/Unicode/Geography/Scottish Postcode Directory/Scottish_Postcode_Directory_2024_1.rds") %>% select(Postcode = pc8, latitude, longitude)})
+
+HSCP_shp <- read_sf(file.path(geo_dir, "Shapefiles/HSCP 2019/SG_NHS_IntegrationAuthority_2019.shp")) %>% 
+  st_transform(crs = 4326)
+
+list_rate <- gpprac %>%
+  group_by(HSCP) %>% 
+  summarise(Rate = 1000 * n()/sum(PracticeListSize)) %>% 
+  right_join(HSCP_shp, ., by = join_by(HIACode == HSCP))
+
+
+pal_clus <- colorFactor(scales::pal_dichromat("Categorical.12")(length(unique(gpprac$GPCluster))), gpprac$GPCluster)
+
+pal_pop <- colorNumeric(phsstyles::phs_colors(c("phs-teal", "phs-magenta")), list_rate$Rate)
 # save the built-in output hook
 hook_output <- knitr::knit_hooks$get("output")
 
@@ -46,7 +73,36 @@ knitr::opts_chunk$set(
 
 By the end of this session you'll be able to build maps like this:
 
-[ADD MAP EXAMPLE]
+```{r, echo = FALSE}
+my_map <- leaflet(height = "75%") %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate),
+              group = "Practices per 1,000 List Size") %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"),
+                   group = "GP Cluster") %>% 
+  addLegend(position = "bottomleft",
+            title = "Practices per 1,000 List Size",
+            pal = pal_pop,
+            values = list_rate$Rate,
+            group = "Practices per 1,000 List Size") %>% 
+  addLegend(position = "bottomleft",
+            title = "GP Cluster",
+            pal = pal_clus,
+            values = gpprac$GPCluster,
+            group = "GP Cluster") %>% 
+  addLayersControl(position = "topright",
+                   options = layersControlOptions(collapsed = FALSE),
+                   baseGroups = c("Practices per 1,000 List Size", "GP Cluster"))
+
+my_map
+```
 
 ---
 
@@ -397,8 +453,73 @@ class: center, middle, inverse3
 
 # Setting Groups
 
+One of the great things about Leaflet is the ability to add multiple pieces of information to a single plot, with the option for users to turn off the pieces of information that they don't want to see. 
+
+Each `add` function (`addMarkers()`, `addPolygons()`, `addLegend()` etc.) has an argument called `group` which allows us to collect everything that relates to a particular group of information.
+
+We can then `addLayersControl()` to create a control that allows us to switch groups on and off within the map.
+
+As an example we'll combine the polygon and point maps that we've created and 
+
 ---
 
 # Adding controls
 
+```{r, eval = FALSE}
+leaflet() %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate),
+              `group = "PracticesSize"`) %>% 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"),
+                   `group = "Clusters"`) %>% 
+  addLegend(position = "bottomleft",
+            title = "Practices per 1,000 List Size",
+            pal = pal_pop,
+            values = list_rate$Rate,
+            `group = "PracticesSize"`) %>% 
+  addLegend(position = "bottomleft",
+            title = "GP Cluster",
+            pal = pal_clus,
+            values = gpprac$GPCluster,
+            `group = "Clusters"`) %>%  
+  addLayersControl(position = "topright",
+                   options = layersControlOptions(collapsed = FALSE),
+                   `baseGroups = c("PracticeSize", "Clusters")`)  
+```
 ---
+
+```{r, echo = FALSE}
+leaflet(height = "75%") %>% 
+  addTiles() %>% 
+  # Always add polygons first otherwise you cover up the points
+  addPolygons(data = list_rate,
+              color = ~pal_pop(Rate),
+              group = "PracticesSize") %>% #<< 
+  addCircleMarkers(data = gpprac,
+                   color = ~pal_clus(GPCluster),
+                   radius = 2, fillOpacity = 1, opacity = 1,
+                   popup = glue::glue("Practice: {gpprac$GPPracticeName}<br>
+                                        Cluster: {gpprac$GPCluster}<br>
+                                        List Size: {gpprac$PracticeListSize}"),
+                   group = "Clusters") %>% #<< 
+  addLegend(position = "bottomleft",
+            title = "Practices per 1,000 List Size",
+            pal = pal_pop,
+            values = list_rate$Rate,
+            group = "PracticesSize") %>% #<< 
+  addLegend(position = "bottomleft",
+            title = "GP Cluster",
+            pal = pal_clus,
+            values = gpprac$GPCluster,
+            group = "Clusters") %>% #<< 
+  addLayersControl(position = "topright",
+                   options = layersControlOptions(collapsed = FALSE),
+                   baseGroups = c("PracticeSize", "Clusters")) #<< 
+```

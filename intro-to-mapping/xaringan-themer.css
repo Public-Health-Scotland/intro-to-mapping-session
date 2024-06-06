@@ -126,6 +126,9 @@ a:hover {
 .remark-code-line-highlighted {
   background-color: var(--code-highlight-color);
 }
+.remark-code-span-highlighted {
+  background-color: var(--code-highlight-color);
+}
 .inverse {
   background-color: var(--inverse-background-color);
   color: var(--inverse-text-color);
