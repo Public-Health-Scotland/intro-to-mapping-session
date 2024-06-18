@@ -207,7 +207,7 @@ The main operation where you need to be a bit careful is when using joins, as th
 When the spatial object comes first spatial attributes stay in place:
 
 ```{r, out.lines = 4}
-locality_lookup <- readr::read_csv(file.path(geo_dir, "/HSCP Locality/HSCP Localities_DZ11_Lookup_20230804.csv")) 
+locality_lookup <- readr::read_csv(file.path(geo_dir, "/HSCP Locality/HSCP Localities_DZ11_Lookup_20240513.csv")) 
 
 left_join(locality_shp, locality_lookup, by = join_by(hscp_local == hscp_locality))
 ```
@@ -522,4 +522,65 @@ leaflet(height = "75%") %>%
   addLayersControl(position = "topright",
                    options = layersControlOptions(collapsed = FALSE),
                    baseGroups = c("Practice Size", "Clusters")) 
+```
+
+---
+
+# Group Task
+
+The code on the next slide will read in data on dispensing broken down by GP Practice and dispensing location. You should select a health board and then create a map using leaflet that has:
+
+- points or markers for dispensing location where the point or marker is coloured by the number of items dispensed
+
+- points or markers for GP practice where the point or marker is coloured by the number of items prescribed
+
+- Add a toggle to allow practices/dispensing locations to be turned on and off by the user.
+
+- locality borders filled based on the proportion of the population in the locality ages 65+
+
+---
+# Prescribing/Dispensing Data Set-up
+```{r}
+library(readr)
+library(dplyr)
+
+# Link to prescribing data
+presc_link <- "https://www.opendata.nhs.scot/dataset/4b4be829-c15e-480e-a2fc-996460ff63c6/resource/fa5bbede-475a-4ca9-a71f-3d521657e7c6/download/prescribed-dispensed-annual-2024.csv"
+
+# Link to dispenser information data
+disp_link <- "https://www.opendata.nhs.scot/dataset/a30fde16-1226-49b3-b13d-eb90e39c2058/resource/b287dcbe-8026-4c0b-9838-9f815be22e62/download/dispenser_contactdetails_mar_2024.csv"
+
+# Link to GP practice information
+GP_link <- "https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/54a6e1e3-98a3-4e78-be0d-1e6d6ebdde1d/download/practice_contactdetails_jan2024-open-data.csv"
+
+prescribed <- read_csv(presc_link)
+gp_lookup <- read_csv(GP_link)
+disp_lookup <- read_csv(disp_link)
+
+gp_presc <- prescribed %>% 
+  group_by(PrescriberLocation) %>% 
+  summarise(Items = sum(NumberOfPaidItems)) %>%
+  mutate(PrescriberLocation = as.numeric(PrescriberLocation)) %>% 
+  right_join(gp_lookup, by = join_by(PrescriberLocation == PracticeCode))
+
+disp_presc <- prescribed %>% 
+  group_by(DispenserLocation) %>% 
+  summarise(Items = sum(NumberOfPaidItems)) %>% 
+  right_join(disp_lookup, by = join_by(DispenserLocation == DispCode)) %>% 
+  mutate(Items = if_else(is.na(Items), 0, Items))
+```
+
+---
+# Population Data Set-up
+
+```{r}
+locality_lookup <- read_csv("/conf/linkage/output/lookups/Unicode/Geography/HSCP Locality/HSCP Localities_DZ11_Lookup_20240513.csv")
+
+pops <- read_csv("/conf/linkage/output/lookups/Unicode/Populations/Estimates/DataZone2011_pop_est_2011_2021.csv") %>% 
+  filter(year == max(year)) %>% 
+  select(datazone2011, age65:age90plus, total_pop) %>%
+  left_join(locality_lookup) %>% 
+  group_by(hscp_locality) %>% 
+  summarise(across(c(starts_with("age"), total_pop), sum)) %>% 
+  mutate(prop65plus = rowSums(across(starts_with("age")))/total_pop, .keep = "unused")
 ```
